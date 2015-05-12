@@ -1,273 +1,401 @@
-/**
- * First page after login screen success
- */
 
-/*
- * Requires no other files to run
- * TODO:
- * 1 - Implement booking/new reservation link
- * 2 - Rewrite for JDBC (MySQL) vs current 2-D object
- * 3 - Sortable columns?
- * 4 - Do we need to be able to edit reservations directly from this page? Currently, you can directly edit, but there is no way to undo or track changes.
- * 5 - Implement logout button
- */
+package chckavailability;
 
+import java.sql.SQLException;
 import javax.swing.*;
-import javax.swing.table.AbstractTableModel;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.GridLayout;
-import java.awt.Dimension;
-import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-public class MainPortal extends JPanel implements ActionListener {
-    private JTable table;
-    private JCheckBox rowCheck;
-    private JCheckBox columnCheck;
-    private JCheckBox cellCheck;
-    private ButtonGroup buttonGroup;
-    private JTextArea output;
-
+public class MainPortal extends JFrame {
+ 
+    
+    private DbConnect connect;  //an instance of class DbConnect
+   private Date frmDate;
+    private Date toDate;
+    //Deafult Constructor to initialise Main Portal page
     public MainPortal() {
-        super();
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-
-        table = new JTable(new MyTableModel());
-        table.setPreferredScrollableViewportSize(new Dimension(500, 70));
-        table.setFillsViewportHeight(true);
-        table.getSelectionModel().addListSelectionListener(new RowListener());
-        table.getColumnModel().getSelectionModel().
-                addListSelectionListener(new ColumnListener());
-        add(new JScrollPane(table));
-
-        add(new JLabel("Selection Mode"));
-        buttonGroup = new ButtonGroup();
-        addRadio("Multiple Reservation Selection").setSelected(true);
-        addRadio("Single Reservation Selection");
-        addRadio("Single Interval Selection"); // probably deprecate
-
-        add(new JLabel("Selection Options"));
-        rowCheck = addCheckBox("Row Selection");
-        rowCheck.setSelected(true);
-        columnCheck = addCheckBox("Column Selection");
-        cellCheck = addCheckBox("Cell Selection");
-        cellCheck.setEnabled(false);
-
-        add(new JButton("Logout"));
-        // To Implement + actionPerformed
-
-        add(new JButton("New Reservation"));
-        // To Implement + actionPerformed
-
-        output = new JTextArea(5, 40);
-        output.setEditable(false);
-        add(new JScrollPane(output));
+        
+        initComponents();
+         setSize(600,300);
+        jScrollPane2.setVisible(false);
+        tableChckAvail.setVisible(false);
+        
     }
 
-    private JCheckBox addCheckBox(String text) {
-        JCheckBox checkBox = new JCheckBox(text);
-        checkBox.addActionListener(this);
-        add(checkBox);
-        return checkBox;
-    }
-
-    private JRadioButton addRadio(String text) {
-        JRadioButton b = new JRadioButton(text);
-        b.addActionListener(this);
-        buttonGroup.add(b);
-        add(b);
-        return b;
-    }
-
-    public void actionPerformed(ActionEvent event) {
-        String command = event.getActionCommand();
-
-        if ("Row Selection" == command) {
-            table.setRowSelectionAllowed(rowCheck.isSelected());
-            //In MIS mode, column selection allowed must be the
-            //opposite of row selection allowed.
-            if (!cellCheck.isEnabled()) {
-                table.setColumnSelectionAllowed(!rowCheck.isSelected());
-            }
-        } else if ("Column Selection" == command) {
-            table.setColumnSelectionAllowed(columnCheck.isSelected());
-            //In MIS mode, row selection allowed must be the
-            //opposite of column selection allowed.
-            if (!cellCheck.isEnabled()) {
-                table.setRowSelectionAllowed(!columnCheck.isSelected());
-            }
-        } else if ("Cell Selection" == command) {
-            table.setCellSelectionEnabled(cellCheck.isSelected());
-        } else if ("Multiple Reservation Selection" == command) {
-            table.setSelectionMode(
-                    ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-            //If cell selection is on, turn it off.
-            if (cellCheck.isSelected()) {
-                cellCheck.setSelected(false);
-                table.setCellSelectionEnabled(false);
-            }
-            //And don't let it be turned back on.
-            cellCheck.setEnabled(false);
-        } else if ("Single Interval Selection" == command) {
-            table.setSelectionMode(
-                    ListSelectionModel.SINGLE_INTERVAL_SELECTION);
-            //Cell selection is ok in this mode.
-            cellCheck.setEnabled(true);
-        } else if ("Single Reservation Selection" == command) {
-            table.setSelectionMode(
-                    ListSelectionModel.SINGLE_SELECTION);
-            //Cell selection is ok in this mode.
-            cellCheck.setEnabled(true);
-        }
-
-        //Update checkboxes to reflect selection mode side effects.
-        rowCheck.setSelected(table.getRowSelectionAllowed());
-        columnCheck.setSelected(table.getColumnSelectionAllowed());
-        if (cellCheck.isEnabled()) {
-            cellCheck.setSelected(table.getCellSelectionEnabled());
-        }
-    }
-
-    private void outputSelection() {
-        output.append(String.format("Lead: %d, %d. ",
-                table.getSelectionModel().getLeadSelectionIndex(),
-                table.getColumnModel().getSelectionModel().
-                        getLeadSelectionIndex()));
-        output.append("Rows:");
-        for (int c : table.getSelectedRows()) {
-            output.append(String.format(" %d", c));
-        }
-        output.append(". Columns:");
-        for (int c : table.getSelectedColumns()) {
-            output.append(String.format(" %d", c));
-        }
-        output.append(".\n");
-    }
-
-    private class RowListener implements ListSelectionListener {
-        public void valueChanged(ListSelectionEvent event) {
-            if (event.getValueIsAdjusting()) {
-                return;
-            }
-            output.append("ROW SELECTION EVENT. ");
-            outputSelection();
-        }
-    }
-
-    private class ColumnListener implements ListSelectionListener {
-        public void valueChanged(ListSelectionEvent event) {
-            if (event.getValueIsAdjusting()) {
-                return;
-            }
-            output.append("COLUMN SELECTION EVENT. ");
-            outputSelection();
-        }
-    }
-
-    // Will update with JDBC calls (MySQL DB)
-    class MyTableModel extends AbstractTableModel {
-        private String[] columnNames = {"ID", "First Name",
-                "Last Name",
-                "Date",
-                "# of Nights",
-                "Paid in full?"};
-        private Object[][] data = {
-                {new Integer(1), "Kathy", "Smith",
-                        new Date(1300000000000l), new Integer(5), new Boolean(false)},
-                {new Integer(2), "John", "Doe",
-                        new Date(1311111111111l), new Integer(3), new Boolean(true)},
-                {new Integer(3), "Sue", "Black",
-                        new Date(1322222222222l), new Integer(2), new Boolean(false)},
-                {new Integer(4), "Jane", "White",
-                        new Date(1333333333333l), new Integer(20), new Boolean(true)},
-                {new Integer(5), "Joe", "Brown",
-                        new Date(1344444444444l), new Integer(10), new Boolean(false)}
-        };
-
-        public int getColumnCount() {
-            return columnNames.length;
-        }
-
-        public int getRowCount() {
-            return data.length;
-        }
-
-        public String getColumnName(int col) {
-            return columnNames[col];
-        }
-
-        public Object getValueAt(int row, int col) {
-            return data[row][col];
-        }
-
-        /*
-         * JTable uses this method to determine the default renderer/
-         * editor for each cell.  If we didn't implement this method,
-         * then the last column would contain text ("true"/"false"),
-         * rather than a check box.
-         */
-        public Class getColumnClass(int c) {
-            return getValueAt(0, c).getClass();
-        }
-
-        /*
-         * Don't need to implement this method unless your table's
-         * editable.
-         */
-        public boolean isCellEditable(int row, int col) {
-            //Note that the data/cell address is constant,
-            //no matter where the cell appears onscreen.
-            if (col < 2) {
-                return false;
-            } else {
-                return true;
-            }
-        }
-
-        /*
-         * Don't need to implement this method unless your table's
-         * data can change.
-         */
-        public void setValueAt(Object value, int row, int col) {
-            data[row][col] = value;
-            fireTableCellUpdated(row, col);
-        }
-
-    }
+   public Date getFrmDate(){
+       return this.frmDate;
+   }
+   public Date getToDate(){
+       return this.toDate;
+   }
+   public DbConnect getConnect(){
+       return this.connect;
+   }
 
     /**
-     * Create the GUI and show it.  For thread safety,
-     * this method should be invoked from the
-     * event-dispatching thread.
+     * This method is called from within the constructor to initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is always
+     * regenerated by the Form Editor.
      */
-    private static void createAndShowGUI() {
-        //Disable boldface controls.
-        UIManager.put("swing.boldMetal", Boolean.FALSE);
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">                          
+    private void initComponents() {
 
-        //Create and set up the window.
-        JFrame frame = new JFrame("MainPortal");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        lblfrmDate = new javax.swing.JLabel();
+        lbltoDate = new javax.swing.JLabel();
+        jDatefrmDate = new com.toedter.calendar.JDateChooser();
+        jDatetoDate = new com.toedter.calendar.JDateChooser();
+        lblNights = new javax.swing.JLabel();
+        jTextNights = new javax.swing.JTextField();
+        lblRoomType = new javax.swing.JLabel();
+        jComboRoomType = new javax.swing.JComboBox();
+        jButtonChckAvailability = new javax.swing.JButton();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        tableChckAvail = new javax.swing.JTable();
+        jButtonBook = new javax.swing.JButton();
+        jButtonLogout = new javax.swing.JButton();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        jTextDisplayArea = new javax.swing.JTextArea();
 
-        //Create and set up the content pane.
-        MainPortal newContentPane = new MainPortal();
-        newContentPane.setOpaque(true); //content panes must be opaque
-        frame.setContentPane(newContentPane);
+        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("WELCOME TO OUR  HOTEL");
+        setName("WELCOME"); // NOI18N
 
-        //Display the window.
-        frame.pack();
-        frame.setVisible(true);
+        lblfrmDate.setText("From :");
+
+        lbltoDate.setText("To :");
+
+        jDatefrmDate.setDateFormatString("MM/dd/yy");
+        jDatefrmDate.setDoubleBuffered(false);
+
+        jDatetoDate.setDateFormatString("MM/dd/yy");
+        jDatetoDate.addInputMethodListener(new java.awt.event.InputMethodListener() {
+            public void caretPositionChanged(java.awt.event.InputMethodEvent evt) {
+            }
+            public void inputMethodTextChanged(java.awt.event.InputMethodEvent evt) {
+                jDatetoDateInputMethodTextChanged(evt);
+            }
+        });
+
+        lblNights.setText(" Nights :");
+
+        jTextNights.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jTextNightsActionPerformed(evt);
+            }
+        });
+
+        lblRoomType.setText("Room Type :");
+
+        jComboRoomType.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "SELECT", "STANDARD", "DELUX", "SUPER DELUX", "SUITE", "EXECUTIVE SUITE", "ROYAL SUITE", " " }));
+        jComboRoomType.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jComboRoomTypeActionPerformed(evt);
+            }
+        });
+
+        jButtonChckAvailability.setText("Check Availability");
+        jButtonChckAvailability.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonChckAvailabilityActionPerformed(evt);
+            }
+        });
+
+        tableChckAvail.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null},
+                {null, null, null, null}
+            },
+            new String [] {
+                "Title 1", "Title 2", "Title 3", "Title 4"
+            }
+        ));
+        jScrollPane2.setViewportView(tableChckAvail);
+
+        jButtonBook.setText("BOOK");
+        jButtonBook.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonBookActionPerformed(evt);
+            }
+        });
+
+        jButtonLogout.setText("LOGOUT");
+        jButtonLogout.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonLogoutActionPerformed(evt);
+            }
+        });
+
+        jTextDisplayArea.setColumns(20);
+        jTextDisplayArea.setRows(5);
+        jScrollPane1.setViewportView(jTextDisplayArea);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(22, 22, 22)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(lblfrmDate)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(jDatefrmDate, javax.swing.GroupLayout.PREFERRED_SIZE, 109, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(32, 32, 32)
+                                .addComponent(lbltoDate))
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(lblRoomType)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                .addComponent(jComboRoomType, javax.swing.GroupLayout.PREFERRED_SIZE, 119, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addGap(18, 18, 18)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jDatetoDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jButtonChckAvailability))
+                        .addGap(37, 37, 37)
+                        .addComponent(lblNights)
+                        .addGap(18, 18, 18)
+                        .addComponent(jTextNights, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(45, 45, 45)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                            .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 468, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jButtonBook)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addGap(81, 81, 81)
+                                .addComponent(jButtonLogout)))))
+                .addContainerGap(80, Short.MAX_VALUE))
+        );
+
+        layout.linkSize(javax.swing.SwingConstants.HORIZONTAL, new java.awt.Component[] {lblfrmDate, lbltoDate});
+
+        layout.linkSize(javax.swing.SwingConstants.HORIZONTAL, new java.awt.Component[] {jDatefrmDate, jDatetoDate});
+
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(jDatefrmDate, javax.swing.GroupLayout.PREFERRED_SIZE, 20, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(javax.swing.GroupLayout.Alignment.LEADING, layout.createSequentialGroup()
+                        .addGap(19, 19, 19)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(lblNights)
+                                .addComponent(jTextNights, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                .addComponent(lblfrmDate)
+                                .addComponent(lbltoDate)
+                                .addComponent(jDatetoDate, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                .addGap(39, 39, 39)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(lblRoomType)
+                    .addComponent(jComboRoomType, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jButtonChckAvailability))
+                .addGap(54, 54, 54)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 150, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(49, 49, 49)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jButtonBook)
+                            .addComponent(jButtonLogout)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+        );
+
+        layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {lblfrmDate, lbltoDate});
+
+        layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {jDatefrmDate, jDatetoDate});
+
+        layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {jComboRoomType, lblRoomType});
+
+        pack();
+    }// </editor-fold>                        
+
+    private void jTextNightsActionPerformed(java.awt.event.ActionEvent evt) {                                            
+        // TODO add your handling code here:
+    }                                           
+
+    private void jComboRoomTypeActionPerformed(java.awt.event.ActionEvent evt) {                                               
+        // TODO add your handling code here:
+    }                                              
+   
+    /**
+     * This method checks the database and displays the result in a JTable.
+     * @param evt 
+     */
+    private void jButtonChckAvailabilityActionPerformed(java.awt.event.ActionEvent evt) {                                                        
+         // TODO add your handling code here:
+        java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("MM/dd/yyyy");
+         frmDate = new Date(dateFormat.format(jDatefrmDate.getDate()));
+         toDate = new Date(dateFormat.format(jDatetoDate.getDate()));
+        String roomType = (String)jComboRoomType.getSelectedItem();
+        int days = calculateDays(frmDate,toDate);
+        jTextNights.setText((Integer.toString(days)));
+        checkAvailability(frmDate,toDate,roomType);
+        displayResult();
+        
+    }                                                       
+   
+    
+    private void checkAvailability(Date frmDate,Date toDate, String roomType){
+        
+    
+        try {
+      String query = "SELECT bookroom.booking_id,bookroom.fromDate,bookroom.toDate,room.room_type,room.unit_no,room.rates\n" +
+                     "FROM bookroom\n" +"INNER JOIN room\n" +"ON bookroom.room_id = room.room_id\n" +
+                      "Where room.room_type = \""+roomType+"\";";
+      connect = new DbConnect(query);
+      
+      Date test = (Date)connect.getRs().getObject("fromDate");
+      if(test.toString().equals(frmDate.toString()))
+      jTextDisplayArea.setText(test.toString()+" "+"true");
+      else
+          jTextDisplayArea.setText(test.toString()+" "+"false");
+      
+        } catch (SQLException ex) {
+            Logger.getLogger(MainPortal.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
+    
+    
+    /**
+    * This method displays the room details from the database in a JTable 
+    */
+    private void displayResult(){
+        
+        
+        try {
+           String query = "select * from room\nwhere room_type =\""+(String)jComboRoomType.getSelectedItem()+"\"and status = \"AVAILABLE\";";
+            
+            
+            connect = new DbConnect(query);
 
-    public static void main(String[] args) {
-        //Schedule a job for the event-dispatching thread:
-        //creating and showing this application's GUI.
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+             //display the table
+             setSize(600,500);
+             jScrollPane2.setVisible(true);
+             tableChckAvail.setVisible(true);
+            tableChckAvail.setModel(connect);
+            
+        } catch (SQLException ex) {
+            Logger.getLogger(MainPortal.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+    }
+    
+    private void jDatetoDateInputMethodTextChanged(java.awt.event.InputMethodEvent evt) {                                                   
+       
+    }                                                  
+/**
+ * This method saves the selected rooms in a bag and then stores the room info to the database.
+ * This method then passes the control to customer info page.
+ * @param evt 
+ */
+    private void jButtonBookActionPerformed(java.awt.event.ActionEvent evt) {                                            
+         // TODO add your handling code here:
+        int[] rows = new int[50];
+         int columns ;
+        String[][] selectedData = new String[50][10];
+        BagInterface<Object> refData = new BookRoom<Object>();
+       if(tableChckAvail.getSelectedRow()>-1){
+
+           rows =  tableChckAvail.getSelectedRows();
+           columns = tableChckAvail.getColumnCount();
+           for(int i=0;i<rows.length;i++){
+               for(int j=0;j<columns;j++){
+                   selectedData[i][j] = tableChckAvail.getValueAt(rows[i],j).toString();
+               }
+              refData.add(selectedData);   
+           }
+          // String numOfItemsSelected = Integer.toString(refData.getCurrentSize()); 
+           //jTextDisplayArea.setText(numOfItemsSelected);
+       }
+       else
+           JOptionPane.showMessageDialog( null, "Please select a room." );
+           
+    }                                           
+
+    private void jButtonLogoutActionPerformed(java.awt.event.ActionEvent evt) {                                              
+        // TODO add your handling code here:
+        setVisible(false);
+        JOptionPane.showMessageDialog(null, "You have successfully logged out.");
+        this.dispose();
+    }                                             
+
+    
+   /**
+    * This method calculates the number of nights for which the room is booked.
+    * @param frmDate
+    * @param toDate
+    * @return number of days
+    */
+   
+    private int calculateDays(Date frmDate,Date toDate){
+        
+       long diff = toDate.getTime()-frmDate.getTime();
+       int days = (int) (diff/(1000*60*60*24));
+        return days;
+    }
+    /**
+     * @param args the command line arguments
+     */
+    public static void main(String args[]) {
+        /* Set the Nimbus look and feel */
+        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
+        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
+         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
+         */
+        try {
+            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (ClassNotFoundException ex) {
+            java.util.logging.Logger.getLogger(MainPortal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (InstantiationException ex) {
+            java.util.logging.Logger.getLogger(MainPortal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (IllegalAccessException ex) {
+            java.util.logging.Logger.getLogger(MainPortal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+            java.util.logging.Logger.getLogger(MainPortal.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        //</editor-fold>
+
+        /* Create and display the form */
+        java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                createAndShowGUI();
+                new MainPortal().setVisible(true);
             }
         });
     }
+
+    // Variables declaration - do not modify                     
+    private javax.swing.JButton jButtonBook;
+    private javax.swing.JButton jButtonChckAvailability;
+    private javax.swing.JButton jButtonLogout;
+    private javax.swing.JComboBox jComboRoomType;
+    private com.toedter.calendar.JDateChooser jDatefrmDate;
+    private com.toedter.calendar.JDateChooser jDatetoDate;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JTextArea jTextDisplayArea;
+    private javax.swing.JTextField jTextNights;
+    private javax.swing.JLabel lblNights;
+    private javax.swing.JLabel lblRoomType;
+    private javax.swing.JLabel lblfrmDate;
+    private javax.swing.JLabel lbltoDate;
+    private javax.swing.JTable tableChckAvail;
+    // End of variables declaration                   
 }
